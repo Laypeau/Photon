@@ -2,39 +2,41 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using Photon.Pun;
 using Photon.Realtime;
 using TMPro;
 
-public class NetworkManager : MonoBehaviourPunCallbacks
+public class NetworkLauncher : MonoBehaviourPunCallbacks
 {
-	public static NetworkManager instance;
-
 	public string loadScene = "Chatx3";
 	[SerializeField] private string gameVersion = "Chatx3_1";
+
+	[Header("Title Screen")]
+	public GameObject titlePanel;
 	[SerializeField] private TMP_InputField usernameField;
 	[SerializeField] private TMP_InputField roomField;
 	[SerializeField] private Button joinButton;
 	[SerializeField] private TMP_Text statusText;
 
+	[Header("Room Screen")]
+	public GameObject roomPanel;
+
+
 	void Awake()
 	{
-		if (instance == null || instance != this)
+		if (titlePanel == null || usernameField == null || roomField == null || joinButton == null || statusText == null || roomPanel == null)
 		{
-			instance = this;
-			DontDestroyOnLoad(gameObject);
-		}
-		else
-		{
-			gameObject.SetActive(false);
+			throw new UnityException("Object references not set");
 		}
 	}
 
 	void Start()
 	{
 		PlayerPrefs.DeleteAll();
-		joinButton.interactable = false;
 		PhotonNetwork.AutomaticallySyncScene = true;
+
+		joinButton.interactable = false;
 		statusText.text = "Connecting to network...";
 
 		PhotonNetwork.GameVersion = gameVersion;
@@ -59,6 +61,13 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 				joinButton.GetComponentInChildren<TMP_Text>().text = "Joining...";
 			}
 		}
+	}
+
+	public void ExitRoom()
+	{
+		PhotonNetwork.LeaveRoom();
+		statusText.text = "Left the room";
+		SceneManager.LoadScene(0);
 	}
 
 	#region Photon callbacks
@@ -104,6 +113,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 	{
 		base.OnPlayerLeftRoom(player);
 
+		Debug.Log($"{player} left the room");
 	}
 	#endregion
 }
