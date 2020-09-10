@@ -26,7 +26,7 @@ public class CharacterController_Transform : MonoBehaviour
 	public float stairStepThreshold = 0.3f; //Clamp to >= 0
 
 	[SerializeField] private float minimumDewalling = 0.01f;
-	[SerializeField] private int wallIterations = 100;
+	[SerializeField] private int maxDewallIterations = 100;
 	private float gravity = -0.01f;
 	private float gravVel;
 	private LayerMask terrainMask;
@@ -65,11 +65,6 @@ public class CharacterController_Transform : MonoBehaviour
 		}
 		Cursor.lockState = CursorLockMode.Locked;
 	}
-	
-	void OnCollisionEnter(Collision collision)
-	{
-		Debug.Log("Collision enter");
-	}
 
 	void FixedUpdate()
 	{
@@ -82,30 +77,30 @@ public class CharacterController_Transform : MonoBehaviour
 		sphereHitAlpha.collider.Raycast(new Ray(sphereHitAlpha.point + Vector3.up, sphereRay.direction), out RaycastHit lineHit, 2f);
 		Vector3 rawProjected = Vector3.ProjectOnPlane(rawRotated, lineHit.normal);
 		Vector3 simulatedMove = rawProjected * moveSpeed;
-/*
+
 		Ray groundRay = new Ray(transform.position + simulatedMove + (Vector3.up * (height - radius)), Vector3.down);
 		Physics.SphereCast(groundRay, radius, out RaycastHit sphereHit, Mathf.Infinity, terrainMask, QueryTriggerInteraction.Ignore); //redo distance
 		if (sphereHit.point.y >= transform.position.y)
 		{
 			gravVel = 0f;
-			
-			if (sphereHit.point.y - transform.position.y >= stairStepThreshold)
+			//Debug.Log($"S:{sphereHit.point.y}, T:{transform.position.y}, Sum:{sphereHit.point.y - transform.position.y}");
+
+			if (sphereHit.point.y - transform.position.y <= stairStepThreshold && !Mathf.Approximately(sphereHit.point.y - transform.position.y, 0f))
 			{
-				transform.position += Vector3.up * (sphereHit.point.y - transform.position.y);
-				//simulatedMove += Vector3.up * (sphereHit.point.y - transform.position.y);
+				simulatedMove += Vector3.up * (sphereHit.point.y - transform.position.y);
 			}
 		}
 		else
 		{
-			if (transform.position.y - sphereHit.point.y < stairStepThreshold) //step threshold. this only works if the step is large enough and the movement is small enough
+			Debug.Log("woo");
+			if (transform.position.y - sphereHit.point.y < stairStepThreshold)
 			{
-				transform.position += Vector3.down * (transform.position.y - sphereHit.point.y);
-				//simulatedMove += Vector3.down * (transform.position.y - sphereHit.point.y);
+				simulatedMove += Vector3.down * (transform.position.y - sphereHit.point.y);
 				gravVel = 0f;
 			}
 			else
 			{
-				if (transform.position.y - (gravVel + gravity) < sphereHit.point.y) //if gravity moves through ground, place on ground
+				if (transform.position.y - (gravVel + gravity) < sphereHit.point.y)
 				{
 					gravVel = -(transform.position.y - sphereHit.point.y);
 				}
@@ -113,30 +108,27 @@ public class CharacterController_Transform : MonoBehaviour
 				{
 					gravVel += gravity;
 				}
-				transform.position += Vector3.up * gravVel;
-				//simulatedMove += Vector3.up * gravVel;
+				simulatedMove += Vector3.up * gravVel;
 			}
 		}
-		*/
 
-		float asdf = 0f;
+		float LargestDewall = 0f;
 		int i = 0;
 		int o = 0;
-		float DewallingDistance = 0f;
 		do
 		{
-			asdf = 0f;
+			LargestDewall = 0f;
 			foreach (Collider overlap in Physics.OverlapCapsule(transform.position + simulatedMove + (Vector3.up * radius), transform.position + simulatedMove + (Vector3.up * (height - radius)), radius, terrainMask, QueryTriggerInteraction.Ignore))
 			{
-				Physics.ComputePenetration(capsuleCollider, capsuleCollider.transform.position + simulatedMove, capsuleCollider.transform.rotation, overlap, overlap.transform.position, overlap.transform.rotation, out Vector3 direction, out DewallingDistance);
+				Physics.ComputePenetration(capsuleCollider, capsuleCollider.transform.position + simulatedMove, capsuleCollider.transform.rotation, overlap, overlap.transform.position, overlap.transform.rotation, out Vector3 direction, out float DewallingDistance);
 				simulatedMove += direction * DewallingDistance;
-				if(DewallingDistance != 0f) asdf = DewallingDistance;
+				if(DewallingDistance != 0f) LargestDewall = DewallingDistance;
 				o++;
 			}
 			i++;
-			if (i >= wallIterations) break;
-		} while(asdf > minimumDewalling);
-		Debug.Log($"Iterations: {i}, Collisions: {o}, Distance: {asdf}");
+			if (i >= maxDewallIterations) break;
+		} while(LargestDewall > minimumDewalling);
+		//Debug.Log($"Iterations: {i}, Collisions: {o}, Distance: {LargestDewall}");
 
 		transform.position += simulatedMove;
 	}
